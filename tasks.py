@@ -5,6 +5,12 @@ from datetime import datetime, timedelta
 import traceback
 
 # ---------- TASK DEFINITIONS ----------
+def is_globally_paused(state):
+    return state.get("global_pause", False)
+
+def is_task_paused(state, task_name):
+    return state.get(f"paused_{task_name}", False)
+
 
 def heartbeat_task(state):
     count = state.get("heartbeat_count", 0) + 1
@@ -16,6 +22,28 @@ def status_task(state):
 
 def unstable_task(state):
     raise RuntimeError("Simulated task failure")
+
+def health_report_task(state):
+    """
+    Summarizes system health and task status.
+    """
+    disabled_tasks = [
+        key.replace("disabled_", "")
+        for key, value in state.items()
+        if key.startswith("disabled_") and value
+    ]
+
+    failure_counts = {
+        key.replace("retry_count_", ""): value
+        for key, value in state.items()
+        if key.startswith("retry_count_") and value > 0
+    }
+
+    log("---- SYSTEM HEALTH REPORT ----")
+    log(f"Disabled tasks: {disabled_tasks or 'None'}")
+    log(f"Tasks with failures: {failure_counts or 'None'}")
+    log("--------------------------------")
+
 
 # ---------- TASK REGISTRY WITH FAILURE POLICY ----------
 
@@ -40,7 +68,15 @@ TASK_REGISTRY = [
         "cooldown_seconds": 10,
         "max_retries": 3,
         "task": unstable_task
-    }
+    },
+    {
+    "name": "health_report",
+    "priority": 100,          # lowest priority
+    "cooldown_seconds": 30,   # once every 30 seconds
+    "max_retries": 0,
+    "task": health_report_task
+}
+
 ]
 
 # ---------- TASK DISPATCHER WITH RETRIES & BACKOFF ----------
@@ -48,6 +84,12 @@ TASK_REGISTRY = [
 def run_all_tasks():
     state = load_state()
     now = datetime.now()
+
+    # -------- GLOBAL PAUSE --------
+    if is_globally_paused(state):
+        log("[CONTROL] Global pause is ON. Skipping all tasks.")
+        save_state(state)
+        return
 
     sorted_tasks = sorted(TASK_REGISTRY, key=lambda t: t["priority"])
 
@@ -57,7 +99,12 @@ def run_all_tasks():
         cooldown = task_info["cooldown_seconds"]
         max_retries = task_info["max_retries"]
 
-        # Disabled task check
+        # -------- PER-TASK PAUSE --------
+        if is_task_paused(state, name):
+            log(f"[CONTROL] Task '{name}' is paused. Skipping.")
+            continue
+
+        # -------- DISABLED TASK CHECK --------
         if state.get(f"disabled_{name}"):
             continue
 
@@ -74,26 +121,22 @@ def run_all_tasks():
 
         try:
             task_fn(state)
-
-            # Success resets retries
             state[retry_key] = 0
             state[last_run_key] = now.isoformat()
 
         except Exception as e:
             retries += 1
             state[retry_key] = retries
-
             log(f"[ERROR] Task '{name}' failed ({retries}/{max_retries}): {e}")
             log(traceback.format_exc())
 
-            # Exponential backoff
             backoff = cooldown * (2 ** retries)
             state[last_run_key] = (now + timedelta(seconds=backoff)).isoformat()
 
-            # Escalation: disable task
             if retries >= max_retries:
                 state[f"disabled_{name}"] = True
                 log(f"[ESCALATION] Task '{name}' disabled after repeated failures")
 
     save_state(state)
+
 
