@@ -1,5 +1,7 @@
 from logger import log
 from config import AGENT_NAME
+from events import detect_file_event
+
 from memory import load_state, save_state
 from datetime import datetime, timedelta
 import traceback
@@ -10,6 +12,33 @@ def is_globally_paused(state):
 
 def is_task_paused(state, task_name):
     return state.get(f"paused_{task_name}", False)
+def event_listener_task(state):
+    detect_file_event(state)
+def event_handler_task(state):
+    queue = state.get("event_queue", [])
+
+    if not queue:
+        return
+
+    event = queue.pop(0)
+
+    log(f"[EVENT HANDLER] Processing event: {event['type']}")
+
+    if event["type"] == "file_changed":
+        log(f"[EVENT HANDLER] File changed: {event['file']}")
+
+    state["event_queue"] = queue
+
+    if not queue:
+        return
+
+    event = queue.pop(0)
+
+    if event["type"] == "file_changed":
+        log(f"[EVENT HANDLER] Handling file change for {event['file']}")
+
+    state["event_queue"] = queue
+
 
 
 def heartbeat_task(state):
@@ -75,7 +104,22 @@ TASK_REGISTRY = [
     "cooldown_seconds": 30,   # once every 30 seconds
     "max_retries": 0,
     "task": health_report_task
+},
+{
+    "name": "event_listener",
+    "priority": 2,
+    "cooldown_seconds": 2,
+    "max_retries": 0,
+    "task": event_listener_task
+},
+{
+    "name": "event_handler",
+    "priority": 3,
+    "cooldown_seconds": 1,
+    "max_retries": 0,
+    "task": event_handler_task
 }
+
 
 ]
 
