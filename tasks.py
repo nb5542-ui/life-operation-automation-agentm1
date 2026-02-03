@@ -1,45 +1,29 @@
-from logger import log
-from config import AGENT_NAME
-from events import detect_file_event
-
-from memory import load_state, save_state
 from datetime import datetime, timedelta
 import traceback
 
-# ---------- TASK DEFINITIONS ----------
+from logger import log
+from config import AGENT_NAME
+from memory import load_state, save_state
+from events import detect_file_event
+from decisions import decide_intents
+from policies import policy_allows_intent, policy_allows_override
+from actions import ACTION_REGISTRY
+
+
+# ======================================================
+# CONTROL HELPERS (DAY 13)
+# ======================================================
+
 def is_globally_paused(state):
     return state.get("global_pause", False)
 
 def is_task_paused(state, task_name):
     return state.get(f"paused_{task_name}", False)
-def event_listener_task(state):
-    detect_file_event(state)
-def event_handler_task(state):
-    queue = state.get("event_queue", [])
-
-    if not queue:
-        return
-
-    event = queue.pop(0)
-
-    log(f"[EVENT HANDLER] Processing event: {event['type']}")
-
-    if event["type"] == "file_changed":
-        log(f"[EVENT HANDLER] File changed: {event['file']}")
-
-    state["event_queue"] = queue
-
-    if not queue:
-        return
-
-    event = queue.pop(0)
-
-    if event["type"] == "file_changed":
-        log(f"[EVENT HANDLER] Handling file change for {event['file']}")
-
-    state["event_queue"] = queue
 
 
+# ======================================================
+# CORE TASKS
+# ======================================================
 
 def heartbeat_task(state):
     count = state.get("heartbeat_count", 0) + 1
@@ -49,13 +33,113 @@ def heartbeat_task(state):
 def status_task(state):
     log(f"{AGENT_NAME} status OK")
 
+
+# ======================================================
+# FAILURE TEST TASK (DAY 10–11)
+# ======================================================
+
 def unstable_task(state):
     raise RuntimeError("Simulated task failure")
 
+
+# ======================================================
+# EVENT SYSTEM TASKS (DAY 14–15)
+# ======================================================
+
+def event_listener_task(state):
+    detect_file_event(state)
+
+def event_handler_task(state):
+    queue = state.get("event_queue", [])
+
+    if not queue:
+        return
+
+    event = queue.pop(0)
+    log(f"[EVENT HANDLER] Processing event: {event['type']}")
+
+    intents = decide_intents(event, state)
+
+    intent_queue = state.get("intent_queue", [])
+    intent_queue.extend(intents)
+
+    state["intent_queue"] = intent_queue
+    state["event_queue"] = queue
+
+
+# ======================================================
+# RECOVERY TASK (DAY 19)
+# ======================================================
+
+def recovery_task(state):
+    """
+    Attempts safe recovery of disabled tasks after a cool-off window.
+    """
+    now = datetime.now()
+
+    for key in list(state.keys()):
+        # Only process real disabled task flags
+        if key.startswith("disabled_") and not key.startswith("disabled_at_") and state.get(key):
+            task_name = key.replace("disabled_", "")
+            disabled_at_key = f"disabled_at_{task_name}"
+            disabled_at = state.get(disabled_at_key)
+
+            if not disabled_at:
+                state[disabled_at_key] = now.isoformat()
+                continue
+
+            disabled_time = datetime.fromisoformat(disabled_at)
+
+            # Cool-off period (60 seconds)
+            if now - disabled_time > timedelta(seconds=60):
+                log(f"[RECOVERY] Re-enabling task '{task_name}' after cool-off")
+
+                state[f"disabled_{task_name}"] = False
+                state.pop(f"retry_count_{task_name}", None)
+                state.pop(disabled_at_key, None)
+
+
+# ======================================================
+# INTENT → ACTION EXECUTION (DAY 16–20)
+# ======================================================
+
+def intent_executor_task(state):
+    intents = state.get("intent_queue", [])
+
+    if not intents:
+        return
+
+    intent = intents.pop(0)
+
+    # -------- POLICY CHECK --------
+    if not policy_allows_intent(intent, state):
+        if policy_allows_override(state):
+            log(f"[OVERRIDE] Forcing action execution: {intent.get('action')}")
+        else:
+            log(f"[INTENT BLOCKED] {intent.get('action')}")
+            state["intent_queue"] = intents
+            return
+
+    action_name = intent.get("action")
+    payload = intent.get("payload", {})
+
+    log(f"[INTENT] Executing action: {action_name}")
+
+    action_fn = ACTION_REGISTRY.get(action_name)
+
+    if not action_fn:
+        log(f"[ACTION ERROR] No executor registered for action '{action_name}'")
+    else:
+        action_fn(payload, state)
+
+    state["intent_queue"] = intents
+
+
+# ======================================================
+# HEALTH & OBSERVABILITY (DAY 12)
+# ======================================================
+
 def health_report_task(state):
-    """
-    Summarizes system health and task status.
-    """
     disabled_tasks = [
         key.replace("disabled_", "")
         for key, value in state.items()
@@ -74,7 +158,9 @@ def health_report_task(state):
     log("--------------------------------")
 
 
-# ---------- TASK REGISTRY WITH FAILURE POLICY ----------
+# ======================================================
+# TASK REGISTRY
+# ======================================================
 
 TASK_REGISTRY = [
     {
@@ -83,6 +169,27 @@ TASK_REGISTRY = [
         "cooldown_seconds": 0,
         "max_retries": 0,
         "task": heartbeat_task
+    },
+    {
+        "name": "event_listener",
+        "priority": 2,
+        "cooldown_seconds": 2,
+        "max_retries": 0,
+        "task": event_listener_task
+    },
+    {
+        "name": "event_handler",
+        "priority": 3,
+        "cooldown_seconds": 1,
+        "max_retries": 0,
+        "task": event_handler_task
+    },
+    {
+        "name": "intent_executor",
+        "priority": 4,
+        "cooldown_seconds": 1,
+        "max_retries": 1,
+        "task": intent_executor_task
     },
     {
         "name": "status",
@@ -99,31 +206,25 @@ TASK_REGISTRY = [
         "task": unstable_task
     },
     {
-    "name": "health_report",
-    "priority": 100,          # lowest priority
-    "cooldown_seconds": 30,   # once every 30 seconds
-    "max_retries": 0,
-    "task": health_report_task
-},
-{
-    "name": "event_listener",
-    "priority": 2,
-    "cooldown_seconds": 2,
-    "max_retries": 0,
-    "task": event_listener_task
-},
-{
-    "name": "event_handler",
-    "priority": 3,
-    "cooldown_seconds": 1,
-    "max_retries": 0,
-    "task": event_handler_task
-}
-
-
+        "name": "recovery",
+        "priority": 90,
+        "cooldown_seconds": 30,
+        "max_retries": 0,
+        "task": recovery_task
+    },
+    {
+        "name": "health_report",
+        "priority": 100,
+        "cooldown_seconds": 30,
+        "max_retries": 0,
+        "task": health_report_task
+    }
 ]
 
-# ---------- TASK DISPATCHER WITH RETRIES & BACKOFF ----------
+
+# ======================================================
+# TASK DISPATCHER (DAY 10–13)
+# ======================================================
 
 def run_all_tasks():
     state = load_state()
@@ -179,8 +280,7 @@ def run_all_tasks():
 
             if retries >= max_retries:
                 state[f"disabled_{name}"] = True
+                state[f"disabled_at_{name}"] = now.isoformat()
                 log(f"[ESCALATION] Task '{name}' disabled after repeated failures")
 
     save_state(state)
-
-
