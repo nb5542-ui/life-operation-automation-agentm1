@@ -1,49 +1,54 @@
 from datetime import datetime
 from logger import log
+from goal import Goal
 
 
 def is_quiet_hours():
-    """
-    Define quiet hours where non-critical work should be avoided.
-    Example: 12 AM – 6 AM
-    """
     hour = datetime.now().hour
-    return hour >= 0 and hour < 6
+    return 0 <= hour < 6
 
 
 def system_unhealthy(state):
-    """
-    System is unhealthy if any task is disabled.
-    """
     return any(
         key.startswith("disabled_") and value
         for key, value in state.items()
     )
 
 
-def decide_intents(event, state):
+def decide_intents(event, state, agent):
     """
-    Convert an event into intents using context + state.
+    Convert an event into intents AND goals.
     """
-    intents = []
 
-    # -------- CONTEXT CHECKS --------
+    intents = []
+    goals = []
+
     if is_quiet_hours():
         log("[DECISION] Quiet hours active. Deferring non-critical actions.")
-        return intents
+        return intents, goals
 
     if system_unhealthy(state):
         log("[DECISION] System unhealthy. Limiting actions.")
-        return intents
+        return intents, goals
 
-    # -------- EVENT-BASED DECISIONS --------
     if event["type"] == "file_changed":
-        intents.append({
-    "action": "analyze_file",
-    "payload": {
-        "file": event["file"]
-    }
-})
+        intent = {
+            "type": "analyze_change",
+            "file": event["file"]
+        }
+        intents.append(intent)
 
+        goal = Goal(
+            goal_id=f"goal_{event['file']}_{int(datetime.now().timestamp())}",
+            type="analyze_change",
+            description=f"Analyze changes in {event['file']}",
+            status="pending",
+            created_at=datetime.now().isoformat(),
+            related_intent=intent
+        )
 
-    return intents
+        goals.append(goal)
+
+        log(f"[GOAL CREATED] {goal.description}")
+
+    return intents, goals

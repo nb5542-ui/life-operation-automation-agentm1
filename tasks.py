@@ -11,7 +11,7 @@ from actions import ACTION_REGISTRY
 
 
 # ======================================================
-# CONTROL HELPERS (DAY 13)
+# CONTROL HELPERS
 # ======================================================
 
 def is_globally_paused(state):
@@ -35,7 +35,7 @@ def status_task(state):
 
 
 # ======================================================
-# FAILURE TEST TASK (DAY 10–11)
+# FAILURE TEST TASK
 # ======================================================
 
 def unstable_task(state):
@@ -43,13 +43,13 @@ def unstable_task(state):
 
 
 # ======================================================
-# EVENT SYSTEM TASKS (DAY 14–15)
+# EVENT SYSTEM TASKS
 # ======================================================
 
 def event_listener_task(state):
     detect_file_event(state)
 
-def event_handler_task(state):
+def event_handler_task(state, agent):
     queue = state.get("event_queue", [])
 
     if not queue:
@@ -58,27 +58,31 @@ def event_handler_task(state):
     event = queue.pop(0)
     log(f"[EVENT HANDLER] Processing event: {event['type']}")
 
-    intents = decide_intents(event, state)
+    # 🔑 DAY 2 CHANGE: intents + goals
+    intents, goals = decide_intents(event, state, agent)
 
+    # ----- INTENTS (existing behavior) -----
     intent_queue = state.get("intent_queue", [])
     intent_queue.extend(intents)
-
     state["intent_queue"] = intent_queue
+
+    # ----- GOALS (new, additive) -----
+    goal_store = state.get("goals", [])
+    for goal in goals:
+        goal_store.append(goal.__dict__)
+
+    state["goals"] = goal_store
     state["event_queue"] = queue
 
 
 # ======================================================
-# RECOVERY TASK (DAY 19)
+# RECOVERY TASK
 # ======================================================
 
 def recovery_task(state):
-    """
-    Attempts safe recovery of disabled tasks after a cool-off window.
-    """
     now = datetime.now()
 
     for key in list(state.keys()):
-        # Only process real disabled task flags
         if key.startswith("disabled_") and not key.startswith("disabled_at_") and state.get(key):
             task_name = key.replace("disabled_", "")
             disabled_at_key = f"disabled_at_{task_name}"
@@ -90,9 +94,8 @@ def recovery_task(state):
 
             disabled_time = datetime.fromisoformat(disabled_at)
 
-            # Cool-off period (60 seconds)
             if now - disabled_time > timedelta(seconds=60):
-                log(f"[RECOVERY] Re-enabling task '{task_name}' after cool-off")
+                log(f"[RECOVERY] Re-enabling task '{task_name}'")
 
                 state[f"disabled_{task_name}"] = False
                 state.pop(f"retry_count_{task_name}", None)
@@ -100,7 +103,7 @@ def recovery_task(state):
 
 
 # ======================================================
-# INTENT → ACTION EXECUTION (DAY 16–20)
+# INTENT → ACTION EXECUTION
 # ======================================================
 
 def intent_executor_task(state):
@@ -136,7 +139,7 @@ def intent_executor_task(state):
 
 
 # ======================================================
-# HEALTH & OBSERVABILITY (DAY 12)
+# HEALTH & OBSERVABILITY
 # ======================================================
 
 def health_report_task(state):
@@ -163,93 +166,39 @@ def health_report_task(state):
 # ======================================================
 
 TASK_REGISTRY = [
-    {
-        "name": "heartbeat",
-        "priority": 1,
-        "cooldown_seconds": 0,
-        "max_retries": 0,
-        "task": heartbeat_task
-    },
-    {
-        "name": "event_listener",
-        "priority": 2,
-        "cooldown_seconds": 2,
-        "max_retries": 0,
-        "task": event_listener_task
-    },
-    {
-        "name": "event_handler",
-        "priority": 3,
-        "cooldown_seconds": 1,
-        "max_retries": 0,
-        "task": event_handler_task
-    },
-    {
-        "name": "intent_executor",
-        "priority": 4,
-        "cooldown_seconds": 1,
-        "max_retries": 1,
-        "task": intent_executor_task
-    },
-    {
-        "name": "status",
-        "priority": 5,
-        "cooldown_seconds": 15,
-        "max_retries": 1,
-        "task": status_task
-    },
-    {
-        "name": "unstable",
-        "priority": 10,
-        "cooldown_seconds": 10,
-        "max_retries": 3,
-        "task": unstable_task
-    },
-    {
-        "name": "recovery",
-        "priority": 90,
-        "cooldown_seconds": 30,
-        "max_retries": 0,
-        "task": recovery_task
-    },
-    {
-        "name": "health_report",
-        "priority": 100,
-        "cooldown_seconds": 30,
-        "max_retries": 0,
-        "task": health_report_task
-    }
+    {"name": "heartbeat", "priority": 1, "cooldown_seconds": 0, "max_retries": 0, "task": heartbeat_task},
+    {"name": "event_listener", "priority": 2, "cooldown_seconds": 2, "max_retries": 0, "task": event_listener_task},
+    {"name": "event_handler", "priority": 3, "cooldown_seconds": 1, "max_retries": 0, "task": event_handler_task},
+    {"name": "intent_executor", "priority": 4, "cooldown_seconds": 1, "max_retries": 1, "task": intent_executor_task},
+    {"name": "status", "priority": 5, "cooldown_seconds": 15, "max_retries": 1, "task": status_task},
+    {"name": "unstable", "priority": 10, "cooldown_seconds": 10, "max_retries": 3, "task": unstable_task},
+    {"name": "recovery", "priority": 90, "cooldown_seconds": 30, "max_retries": 0, "task": recovery_task},
+    {"name": "health_report", "priority": 100, "cooldown_seconds": 30, "max_retries": 0, "task": health_report_task},
 ]
 
 
 # ======================================================
-# TASK DISPATCHER (DAY 10–13)
+# TASK DISPATCHER
 # ======================================================
 
-def run_all_tasks():
+def run_all_tasks(agent):
     state = load_state()
     now = datetime.now()
 
-    # -------- GLOBAL PAUSE --------
     if is_globally_paused(state):
         log("[CONTROL] Global pause is ON. Skipping all tasks.")
         save_state(state)
         return
 
-    sorted_tasks = sorted(TASK_REGISTRY, key=lambda t: t["priority"])
-
-    for task_info in sorted_tasks:
+    for task_info in sorted(TASK_REGISTRY, key=lambda t: t["priority"]):
         name = task_info["name"]
         task_fn = task_info["task"]
         cooldown = task_info["cooldown_seconds"]
         max_retries = task_info["max_retries"]
 
-        # -------- PER-TASK PAUSE --------
         if is_task_paused(state, name):
-            log(f"[CONTROL] Task '{name}' is paused. Skipping.")
             continue
 
-        # -------- DISABLED TASK CHECK --------
         if state.get(f"disabled_{name}"):
             continue
 
@@ -265,7 +214,11 @@ def run_all_tasks():
         retries = state.get(retry_key, 0)
 
         try:
-            task_fn(state)
+            if name == "event_handler":
+                task_fn(state, agent)
+            else:
+                task_fn(state)
+
             state[retry_key] = 0
             state[last_run_key] = now.isoformat()
 

@@ -2,3 +2,4 @@ hello
 systemecho 1 >> event_trigger.txtecho 1 >> event_trigger.txtecho 1 >> event_trigger.txt
 echo 1 >> event_trigger.txt
 echo 1 ** saitma ds,systom
+echo 1 ** saitma ds,systom,desi na bolyakar chori re
