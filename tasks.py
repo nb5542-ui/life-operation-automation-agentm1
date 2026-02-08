@@ -22,6 +22,29 @@ def is_task_paused(state, task_name):
 
 
 # ======================================================
+# GOAL MANAGEMENT (DAY 3)
+# ======================================================
+
+def activate_next_goal(state, agent):
+    goals = state.get("goals", [])
+
+    has_active = any(
+        g["status"] == "active" and g["owner_agent_id"] == agent.agent_id
+        for g in goals
+    )
+
+    if has_active:
+        return
+
+    for goal in goals:
+        if goal["status"] == "pending" and goal["owner_agent_id"] == agent.agent_id:
+            goal["status"] = "active"
+            goal["updated_at"] = datetime.now().isoformat()
+            log(f"[GOAL ACTIVATED] {goal['description']}")
+            return
+
+
+# ======================================================
 # CORE TASKS
 # ======================================================
 
@@ -58,20 +81,27 @@ def event_handler_task(state, agent):
     event = queue.pop(0)
     log(f"[EVENT HANDLER] Processing event: {event['type']}")
 
-    # 🔑 DAY 2 CHANGE: intents + goals
     intents, goals = decide_intents(event, state, agent)
 
-    # ----- INTENTS (existing behavior) -----
+    # ----- INTENTS -----
     intent_queue = state.get("intent_queue", [])
     intent_queue.extend(intents)
     state["intent_queue"] = intent_queue
 
-    # ----- GOALS (new, additive) -----
+    # ----- GOALS + MISSIONS (DAY 4) -----
     goal_store = state.get("goals", [])
+    missions = state.get("missions", {})
+
     for goal in goals:
-        goal_store.append(goal.__dict__)
+        goal_dict = goal.__dict__
+        goal_store.append(goal_dict)
+
+        mission_id = goal_dict.get("mission_id")
+        if mission_id:
+            missions.setdefault(mission_id, []).append(goal_dict["goal_id"])
 
     state["goals"] = goal_store
+    state["missions"] = missions
     state["event_queue"] = queue
 
 
@@ -114,7 +144,6 @@ def intent_executor_task(state):
 
     intent = intents.pop(0)
 
-    # -------- POLICY CHECK --------
     if not policy_allows_intent(intent, state):
         if policy_allows_override(state):
             log(f"[OVERRIDE] Forcing action execution: {intent.get('action')}")
@@ -139,7 +168,7 @@ def intent_executor_task(state):
 
 
 # ======================================================
-# HEALTH & OBSERVABILITY
+# HEALTH REPORT
 # ======================================================
 
 def health_report_task(state):
@@ -181,9 +210,11 @@ TASK_REGISTRY = [
 # TASK DISPATCHER
 # ======================================================
 
-def run_all_tasks(agent):
+def run_all_tasks(agent, missions):
     state = load_state()
     now = datetime.now()
+
+    activate_next_goal(state, agent)
 
     if is_globally_paused(state):
         log("[CONTROL] Global pause is ON. Skipping all tasks.")

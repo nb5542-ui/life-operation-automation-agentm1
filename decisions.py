@@ -17,7 +17,7 @@ def system_unhealthy(state):
 
 def decide_intents(event, state, agent):
     """
-    Convert an event into intents AND goals.
+    Convert an event into intents AND mission-bound goals.
     """
 
     intents = []
@@ -44,8 +44,12 @@ def decide_intents(event, state, agent):
             description=f"Analyze changes in {event['file']}",
             status="pending",
             created_at=datetime.now().isoformat(),
+            owner_agent_id=agent.agent_id,
             related_intent=intent
         )
+
+        # 🔑 DAY 4: bind goal to mission
+        goal.mission_id = "mission_codebase_health"
 
         goals.append(goal)
 
