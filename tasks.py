@@ -22,11 +22,43 @@ def is_task_paused(state, task_name):
 
 
 # ======================================================
-# GOAL MANAGEMENT (DAY 3)
+# PLANNING (DAY 5)
+# ======================================================
+
+def generate_plan_for_goal(goal):
+    plan_id = f"plan_{goal['goal_id']}"
+
+    steps = [
+        {
+            "step_id": f"{plan_id}_step1",
+            "action": "analyze_file",
+            "payload": goal.get("related_intent", {}),
+            "status": "pending"
+        },
+        {
+            "step_id": f"{plan_id}_step2",
+            "action": "log_result",
+            "payload": {"message": f"Analysis completed for {goal['goal_id']}"},
+            "status": "pending"
+        }
+    ]
+
+    return {
+        "plan_id": plan_id,
+        "goal_id": goal["goal_id"],
+        "created_at": datetime.now().isoformat(),
+        "steps": steps,
+        "status": "active"
+    }
+
+
+# ======================================================
+# GOAL MANAGEMENT (DAY 3 + DAY 5)
 # ======================================================
 
 def activate_next_goal(state, agent):
     goals = state.get("goals", [])
+    plans = state.get("plans", [])
 
     has_active = any(
         g["status"] == "active" and g["owner_agent_id"] == agent.agent_id
@@ -41,6 +73,12 @@ def activate_next_goal(state, agent):
             goal["status"] = "active"
             goal["updated_at"] = datetime.now().isoformat()
             log(f"[GOAL ACTIVATED] {goal['description']}")
+
+            # 🔑 DAY 5: Generate plan
+            plan = generate_plan_for_goal(goal)
+            plans.append(plan)
+
+            state["plans"] = plans
             return
 
 
@@ -88,7 +126,7 @@ def event_handler_task(state, agent):
     intent_queue.extend(intents)
     state["intent_queue"] = intent_queue
 
-    # ----- GOALS + MISSIONS (DAY 4) -----
+    # ----- GOALS + MISSIONS -----
     goal_store = state.get("goals", [])
     missions = state.get("missions", {})
 
@@ -214,6 +252,7 @@ def run_all_tasks(agent, missions):
     state = load_state()
     now = datetime.now()
 
+    # 🔑 DAY 3 + 5: Goal activation + plan generation
     activate_next_goal(state, agent)
 
     if is_globally_paused(state):
