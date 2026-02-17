@@ -41,8 +41,8 @@ def policy_allows_intent(intent, state):
         "analyze_file_change",
     }
 
-    if intent["intent"] not in allowed_intents:
-        log(f"[POLICY] Intent '{intent['intent']}' not allowed.")
+    if intent["actions"] not in allowed_intents:
+        log(f"[POLICY] Intent '{intent['actions']}' not allowed.")
         return False
 
     return True

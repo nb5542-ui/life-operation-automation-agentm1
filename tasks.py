@@ -50,6 +50,46 @@ def generate_plan_for_goal(goal):
         "steps": steps,
         "status": "active"
     }
+def execute_plan_step(state, agent):
+    plans = state.get("plans", [])
+    goals = state.get("goals", [])
+
+    # Find active plan
+    active_plan = next((p for p in plans if p["status"] == "active"), None)
+
+    if not active_plan:
+        return
+
+    # Find next pending step
+    step = next((s for s in active_plan["steps"] if s["status"] == "pending"), None)
+
+    if not step:
+        # No pending steps → mark plan & goal completed
+        active_plan["status"] = "completed"
+
+        goal_id = active_plan["goal_id"]
+        for goal in goals:
+            if goal["goal_id"] == goal_id:
+                goal["status"] = "completed"
+                goal["updated_at"] = datetime.now().isoformat()
+                log(f"[GOAL COMPLETED] {goal['description']}")
+
+        return
+
+    # Convert step to intent
+    intent_queue = state.get("intent_queue", [])
+
+    intent_queue.append({
+        "action": step["action"],
+        "payload": step["payload"]
+    })
+
+    state["intent_queue"] = intent_queue
+
+    step["status"] = "completed"
+
+    log(f"[PLAN] Executed step: {step['step_id']}")
+
 
 
 # ======================================================
@@ -237,8 +277,16 @@ TASK_REGISTRY = [
     {"name": "event_listener", "priority": 2, "cooldown_seconds": 2, "max_retries": 0, "task": event_listener_task},
     {"name": "event_handler", "priority": 3, "cooldown_seconds": 1, "max_retries": 0, "task": event_handler_task},
     {"name": "intent_executor", "priority": 4, "cooldown_seconds": 1, "max_retries": 1, "task": intent_executor_task},
+    {
+    "name": "plan_executor",
+    "priority": 5,
+    "cooldown_seconds": 1,
+    "max_retries": 1,
+    "task": execute_plan_step
+},
+
     {"name": "status", "priority": 5, "cooldown_seconds": 15, "max_retries": 1, "task": status_task},
-    {"name": "unstable", "priority": 10, "cooldown_seconds": 10, "max_retries": 3, "task": unstable_task},
+    
     {"name": "recovery", "priority": 90, "cooldown_seconds": 30, "max_retries": 0, "task": recovery_task},
     {"name": "health_report", "priority": 100, "cooldown_seconds": 30, "max_retries": 0, "task": health_report_task},
 ]
@@ -284,7 +332,7 @@ def run_all_tasks(agent, missions):
         retries = state.get(retry_key, 0)
 
         try:
-            if name == "event_handler":
+            if name in ["event_handler", "plan_executor"]:
                 task_fn(state, agent)
             else:
                 task_fn(state)
