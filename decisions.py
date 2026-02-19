@@ -8,6 +8,7 @@ def is_quiet_hours():
     return 0 <= hour < 6
 
 
+
 def system_unhealthy(state):
     return any(
         key.startswith("disabled_") and value

@@ -29,19 +29,23 @@ def generate_plan_for_goal(goal):
     plan_id = f"plan_{goal['goal_id']}"
 
     steps = [
-        {
-            "step_id": f"{plan_id}_step1",
-            "action": "analyze_file",
-            "payload": goal.get("related_intent", {}),
-            "status": "pending"
-        },
-        {
-            "step_id": f"{plan_id}_step2",
-            "action": "log_result",
-            "payload": {"message": f"Analysis completed for {goal['goal_id']}"},
-            "status": "pending"
-        }
-    ]
+    {
+        "step_id": f"{plan_id}_step1",
+        "action": "analyze_file",
+        "payload": goal.get("related_intent", {}),
+        "status": "pending",
+        "retry_count": 0,
+        "max_retries": 2
+    },
+    {
+        "step_id": f"{plan_id}_step2",
+        "action": "log_result",
+        "payload": {"message": f"Analysis completed for {goal['goal_id']}"},
+        "status": "pending",
+        "retry_count": 0,
+        "max_retries": 2
+    }
+]
 
     return {
         "plan_id": plan_id,
@@ -56,15 +60,18 @@ def execute_plan_step(state, agent):
 
     # Find active plan
     active_plan = next((p for p in plans if p["status"] == "active"), None)
-
     if not active_plan:
         return
 
-    # Find next pending step
-    step = next((s for s in active_plan["steps"] if s["status"] == "pending"), None)
+    # Find first step that is pending or in_progress
+    step = next(
+        (s for s in active_plan["steps"]
+         if s["status"] in ["pending", "in_progress"]),
+        None
+    )
 
+    # If no steps left → plan complete
     if not step:
-        # No pending steps → mark plan & goal completed
         active_plan["status"] = "completed"
 
         goal_id = active_plan["goal_id"]
@@ -73,23 +80,23 @@ def execute_plan_step(state, agent):
                 goal["status"] = "completed"
                 goal["updated_at"] = datetime.now().isoformat()
                 log(f"[GOAL COMPLETED] {goal['description']}")
-
         return
 
-    # Convert step to intent
-    intent_queue = state.get("intent_queue", [])
+    # If step is pending → dispatch intent
+    if step["status"] == "pending":
+        intent_queue = state.get("intent_queue", [])
 
-    intent_queue.append({
-        "action": step["action"],
-        "payload": step["payload"]
-    })
+        intent_queue.append({
+            "action": step["action"],
+            "payload": step["payload"],
+            "plan_step_id": step["step_id"]
+        })
 
-    state["intent_queue"] = intent_queue
+        state["intent_queue"] = intent_queue
 
-    step["status"] = "completed"
-
-    log(f"[PLAN] Executed step: {step['step_id']}")
-
+        step["status"] = "in_progress"
+        log(f"[PLAN] Step started: {step['step_id']}")
+        return
 
 
 # ======================================================
@@ -213,6 +220,12 @@ def recovery_task(state):
 # ======================================================
 # INTENT → ACTION EXECUTION
 # ======================================================
+def find_plan_and_step(state, step_id):
+    for plan in state.get("plans", []):
+        for step in plan.get("steps", []):
+            if step["step_id"] == step_id:
+                return plan, step
+    return None, None
 
 def intent_executor_task(state):
     intents = state.get("intent_queue", [])
@@ -232,6 +245,7 @@ def intent_executor_task(state):
 
     action_name = intent.get("action")
     payload = intent.get("payload", {})
+    plan_step_id = intent.get("plan_step_id")
 
     log(f"[INTENT] Executing action: {action_name}")
 
@@ -239,10 +253,48 @@ def intent_executor_task(state):
 
     if not action_fn:
         log(f"[ACTION ERROR] No executor registered for action '{action_name}'")
-    else:
+        state["intent_queue"] = intents
+        return
+
+    try:
         action_fn(payload, state)
 
+        # ✅ SUCCESS
+        if plan_step_id:
+            plan, step = find_plan_and_step(state, plan_step_id)
+            if step:
+                step["status"] = "completed"
+                log(f"[PLAN] Step completed: {step['step_id']}")
+
+    except Exception as e:
+        log(f"[ACTION FAILURE] {action_name}: {e}")
+        log(traceback.format_exc())
+
+        # ❌ FAILURE HANDLING
+        if plan_step_id:
+            plan, step = find_plan_and_step(state, plan_step_id)
+
+            if step:
+                step["retry_count"] += 1
+
+                if step["retry_count"] < step["max_retries"]:
+                    step["status"] = "pending"
+                    log(f"[PLAN RETRY] {step['step_id']} retry {step['retry_count']}/{step['max_retries']}")
+                else:
+                    step["status"] = "failed"
+                    plan["status"] = "failed"
+                    log(f"[PLAN FAILED] Step {step['step_id']} exceeded retries")
+
+                    # Fail goal
+                    goal_id = plan.get("goal_id")
+                    for goal in state.get("goals", []):
+                        if goal["goal_id"] == goal_id:
+                            goal["status"] = "failed"
+                            goal["updated_at"] = datetime.now().isoformat()
+                            log(f"[GOAL FAILED] {goal['description']}")
+
     state["intent_queue"] = intents
+
 
 
 # ======================================================
