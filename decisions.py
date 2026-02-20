@@ -33,15 +33,20 @@ def decide_intents(event, state, agent):
         return intents, goals
 
     if event["type"] == "file_changed":
+
+        # ✅ NEW STANDARDIZED INTENT
         intent = {
-            "type": "analyze_change",
-            "file": event["file"]
+            "action": "analyze_file",
+            "payload": {
+                "file": event["file"]
+            }
         }
-        intents.append(intent)
+
+        
 
         goal = Goal(
             goal_id=f"goal_{event['file']}_{int(datetime.now().timestamp())}",
-            type="analyze_change",
+            type="analyze_file",
             description=f"Analyze changes in {event['file']}",
             status="pending",
             created_at=datetime.now().isoformat(),

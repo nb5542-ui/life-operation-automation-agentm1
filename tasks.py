@@ -32,7 +32,7 @@ def generate_plan_for_goal(goal):
     {
         "step_id": f"{plan_id}_step1",
         "action": "analyze_file",
-        "payload": goal.get("related_intent", {}),
+        "payload": goal.get("related_intent", {}).get("payload", {}),
         "status": "pending",
         "retry_count": 0,
         "max_retries": 2

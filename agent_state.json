@@ -1,98 +1,83 @@
 {
-    "heartbeat_count": 67,
+    "heartbeat_count": 117,
     "retry_count_heartbeat": 0,
-    "last_run_heartbeat": "2026-02-19T23:33:18.244923",
-    "watch_file_mtime": 1771520001.5290735,
+    "last_run_heartbeat": "2026-02-20T18:03:04.365842",
+    "watch_file_mtime": 1771590763.7653704,
     "retry_count_event_listener": 0,
-    "last_run_event_listener": "2026-02-19T23:33:18.244923",
+    "last_run_event_listener": "2026-02-20T18:03:04.365842",
     "retry_count_event_handler": 0,
-    "last_run_event_handler": "2026-02-19T23:33:18.244923",
-    "last_run_intent_executor": "2026-02-19T23:33:18.244923",
+    "last_run_event_handler": "2026-02-20T18:03:04.365842",
+    "last_run_intent_executor": "2026-02-20T18:03:04.365842",
     "retry_count_plan_executor": 0,
-    "last_run_plan_executor": "2026-02-19T23:33:18.244923",
+    "last_run_plan_executor": "2026-02-20T18:03:04.365842",
     "retry_count_status": 0,
-    "last_run_status": "2026-02-19T23:33:08.240746",
+    "last_run_status": "2026-02-20T18:03:04.365842",
     "retry_count_recovery": 0,
-    "last_run_recovery": "2026-02-19T23:32:53.235057",
+    "last_run_recovery": "2026-02-20T18:03:04.365842",
     "retry_count_health_report": 0,
-    "last_run_health_report": "2026-02-19T23:32:53.235057",
+    "last_run_health_report": "2026-02-20T18:03:04.365842",
     "event_queue": [],
     "intent_queue": [],
     "goals": [
         {
-            "goal_id": "goal_event_trigger.txt_1771449001",
-            "type": "analyze_change",
+            "goal_id": "goal_event_trigger.txt_1771588051",
+            "type": "analyze_file",
             "description": "Analyze changes in event_trigger.txt",
             "status": "active",
-            "created_at": "2026-02-19T02:40:01.406483",
+            "created_at": "2026-02-20T17:17:31.258219",
             "owner_agent_id": "system",
             "related_intent": {
-                "type": "analyze_change",
-                "file": "event_trigger.txt"
+                "action": "analyze_file",
+                "payload": {
+                    "file": "event_trigger.txt"
+                }
             },
-            "updated_at": "2026-02-19T02:40:06.408883",
+            "updated_at": "2026-02-20T17:17:36.260205",
             "mission_id": "mission_codebase_health"
         },
         {
-            "goal_id": "goal_event_trigger.txt_1771517908",
-            "type": "analyze_change",
+            "goal_id": "goal_event_trigger.txt_1771590764",
+            "type": "analyze_file",
             "description": "Analyze changes in event_trigger.txt",
             "status": "pending",
-            "created_at": "2026-02-19T21:48:28.289690",
+            "created_at": "2026-02-20T18:02:44.354712",
             "owner_agent_id": "system",
             "related_intent": {
-                "type": "analyze_change",
-                "file": "event_trigger.txt"
-            },
-            "updated_at": null,
-            "mission_id": "mission_codebase_health"
-        },
-        {
-            "goal_id": "goal_event_trigger.txt_1771520002",
-            "type": "analyze_change",
-            "description": "Analyze changes in event_trigger.txt",
-            "status": "pending",
-            "created_at": "2026-02-19T22:23:22.456381",
-            "owner_agent_id": "system",
-            "related_intent": {
-                "type": "analyze_change",
-                "file": "event_trigger.txt"
+                "action": "analyze_file",
+                "payload": {
+                    "file": "event_trigger.txt"
+                }
             },
             "updated_at": null,
             "mission_id": "mission_codebase_health"
         }
     ],
-    "missions": {
-        "mission_codebase_health": [
-            "goal_event_trigger.txt_1771449001",
-            "goal_event_trigger.txt_1771517908",
-            "goal_event_trigger.txt_1771520002"
-        ]
-    },
     "plans": [
         {
-            "plan_id": "plan_goal_event_trigger.txt_1771449001",
-            "goal_id": "goal_event_trigger.txt_1771449001",
-            "created_at": "2026-02-19T02:40:06.408883",
+            "plan_id": "plan_goal_event_trigger.txt_1771588051",
+            "goal_id": "goal_event_trigger.txt_1771588051",
+            "created_at": "2026-02-20T17:17:36.260205",
             "steps": [
                 {
-                    "step_id": "plan_goal_event_trigger.txt_1771449001_step1",
+                    "step_id": "plan_goal_event_trigger.txt_1771588051_step1",
                     "action": "analyze_file",
                     "payload": {
-                        "type": "analyze_change",
-                        "file": "event_trigger.txt"
+                        "action": "analyze_file",
+                        "payload": {
+                            "file": "event_trigger.txt"
+                        }
                     },
-                    "status": "in_progress",
+                    "status": "completed",
                     "retry_count": 0,
                     "max_retries": 2
                 },
                 {
-                    "step_id": "plan_goal_event_trigger.txt_1771449001_step2",
+                    "step_id": "plan_goal_event_trigger.txt_1771588051_step2",
                     "action": "log_result",
                     "payload": {
-                        "message": "Analysis completed for goal_event_trigger.txt_1771449001"
+                        "message": "Analysis completed for goal_event_trigger.txt_1771588051"
                     },
-                    "status": "pending",
+                    "status": "in_progress",
                     "retry_count": 0,
                     "max_retries": 2
                 }
@@ -100,6 +85,11 @@
             "status": "active"
         }
     ],
-    "disabled_intent_executor": false,
-    "retry_count_intent_executor": 0
+    "retry_count_intent_executor": 0,
+    "missions": {
+        "mission_codebase_health": [
+            "goal_event_trigger.txt_1771588051",
+            "goal_event_trigger.txt_1771590764"
+        ]
+    }
 }

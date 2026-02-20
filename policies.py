@@ -1,11 +1,12 @@
 from datetime import datetime
 from logger import log
 
+
 # ---------- GLOBAL POLICY RULES ----------
 
 def is_quiet_hours():
     hour = datetime.now().hour
-    return hour >= 0 and hour < 6
+    return 0 <= hour < 6
 
 
 def system_unhealthy(state):
@@ -38,17 +39,25 @@ def policy_allows_intent(intent, state):
 
     # 4) Explicit allow-list (important)
     allowed_intents = {
-        "analyze_file_change",
+        "analyze_file",
+        "log_result",
     }
 
-    if intent["actions"] not in allowed_intents:
-        log(f"[POLICY] Intent '{intent['actions']}' not allowed.")
+    action_name = intent.get("action")
+
+    if not action_name:
+        log("[POLICY ERROR] Intent missing 'action' field.")
+        return False
+
+    if action_name not in allowed_intents:
+        log(f"[POLICY] Intent '{action_name}' not allowed.")
         return False
 
     return True
+
+
 def policy_allows_override(state):
     """
     Human override must be explicit and temporary.
     """
     return state.get("allow_override", False)
-
