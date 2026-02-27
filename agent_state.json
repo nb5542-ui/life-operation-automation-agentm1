@@ -1,30 +1,31 @@
 {
-    "heartbeat_count": 117,
+    "heartbeat_count": 33,
     "retry_count_heartbeat": 0,
-    "last_run_heartbeat": "2026-02-20T18:03:04.365842",
-    "watch_file_mtime": 1771590763.7653704,
+    "last_run_heartbeat": "2026-02-28T02:47:59.309245",
+    "watch_file_mtime": 1772227072.511483,
     "retry_count_event_listener": 0,
-    "last_run_event_listener": "2026-02-20T18:03:04.365842",
+    "last_run_event_listener": "2026-02-28T02:47:59.309245",
     "retry_count_event_handler": 0,
-    "last_run_event_handler": "2026-02-20T18:03:04.365842",
-    "last_run_intent_executor": "2026-02-20T18:03:04.365842",
+    "last_run_event_handler": "2026-02-28T02:47:59.309245",
+    "retry_count_intent_executor": 0,
+    "last_run_intent_executor": "2026-02-28T02:47:59.309245",
     "retry_count_plan_executor": 0,
-    "last_run_plan_executor": "2026-02-20T18:03:04.365842",
+    "last_run_plan_executor": "2026-02-28T02:47:59.309245",
     "retry_count_status": 0,
-    "last_run_status": "2026-02-20T18:03:04.365842",
+    "last_run_status": "2026-02-28T02:47:54.305873",
     "retry_count_recovery": 0,
-    "last_run_recovery": "2026-02-20T18:03:04.365842",
+    "last_run_recovery": "2026-02-28T02:47:39.289705",
     "retry_count_health_report": 0,
-    "last_run_health_report": "2026-02-20T18:03:04.365842",
+    "last_run_health_report": "2026-02-28T02:47:39.289705",
     "event_queue": [],
     "intent_queue": [],
     "goals": [
         {
-            "goal_id": "goal_event_trigger.txt_1771588051",
+            "goal_id": "goal_event_trigger.txt_1771665952",
             "type": "analyze_file",
             "description": "Analyze changes in event_trigger.txt",
-            "status": "active",
-            "created_at": "2026-02-20T17:17:31.258219",
+            "status": "completed",
+            "created_at": "2026-02-21T14:55:52.630840",
             "owner_agent_id": "system",
             "related_intent": {
                 "action": "analyze_file",
@@ -32,64 +33,49 @@
                     "file": "event_trigger.txt"
                 }
             },
-            "updated_at": "2026-02-20T17:17:36.260205",
-            "mission_id": "mission_codebase_health"
-        },
-        {
-            "goal_id": "goal_event_trigger.txt_1771590764",
-            "type": "analyze_file",
-            "description": "Analyze changes in event_trigger.txt",
-            "status": "pending",
-            "created_at": "2026-02-20T18:02:44.354712",
-            "owner_agent_id": "system",
-            "related_intent": {
-                "action": "analyze_file",
-                "payload": {
-                    "file": "event_trigger.txt"
-                }
-            },
-            "updated_at": null,
+            "updated_at": "2026-02-21T14:56:07.639529",
             "mission_id": "mission_codebase_health"
         }
     ],
+    "missions": {
+        "mission_codebase_health": [
+            "goal_event_trigger.txt_1771665952"
+        ]
+    },
     "plans": [
         {
-            "plan_id": "plan_goal_event_trigger.txt_1771588051",
-            "goal_id": "goal_event_trigger.txt_1771588051",
-            "created_at": "2026-02-20T17:17:36.260205",
+            "plan_id": "plan_goal_event_trigger.txt_1771665952",
+            "goal_id": "goal_event_trigger.txt_1771665952",
+            "created_at": "2026-02-21T14:55:57.632943",
             "steps": [
                 {
-                    "step_id": "plan_goal_event_trigger.txt_1771588051_step1",
+                    "step_id": "plan_goal_event_trigger.txt_1771665952_step1",
                     "action": "analyze_file",
                     "payload": {
-                        "action": "analyze_file",
-                        "payload": {
-                            "file": "event_trigger.txt"
-                        }
+                        "file": "event_trigger.txt"
                     },
                     "status": "completed",
                     "retry_count": 0,
                     "max_retries": 2
                 },
                 {
-                    "step_id": "plan_goal_event_trigger.txt_1771588051_step2",
+                    "step_id": "plan_goal_event_trigger.txt_1771665952_step2",
                     "action": "log_result",
                     "payload": {
-                        "message": "Analysis completed for goal_event_trigger.txt_1771588051"
+                        "message": "Analysis completed for goal_event_trigger.txt_1771665952"
                     },
-                    "status": "in_progress",
+                    "status": "completed",
                     "retry_count": 0,
                     "max_retries": 2
                 }
             ],
-            "status": "active"
+            "status": "completed"
         }
     ],
-    "retry_count_intent_executor": 0,
-    "missions": {
-        "mission_codebase_health": [
-            "goal_event_trigger.txt_1771588051",
-            "goal_event_trigger.txt_1771590764"
-        ]
-    }
+    "retry_count_goal_timeout": 0,
+    "disabled_weekly_review": false,
+    "last_run_goal_timeout": "2026-02-28T02:47:39.289705",
+    "last_weekly_review": "2026-02-28T02:44:01.682300",
+    "last_run_weekly_review": "2026-02-28T02:47:39.289705",
+    "retry_count_weekly_review": 0
 }

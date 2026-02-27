@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import traceback
 
+import goal
 from logger import log
 from config import AGENT_NAME
 from memory import load_state, save_state
@@ -119,6 +120,11 @@ def activate_next_goal(state, agent):
         if goal["status"] == "pending" and goal["owner_agent_id"] == agent.agent_id:
             goal["status"] = "active"
             goal["updated_at"] = datetime.now().isoformat()
+
+            # ✅ ADD THESE 2 LINES
+            goal["activated_at"] = datetime.now().isoformat()
+            goal["timeout_seconds"] = 7 * 24 * 60 * 60  # 7 days
+
             log(f"[GOAL ACTIVATED] {goal['description']}")
 
             # 🔑 DAY 5: Generate plan
@@ -216,6 +222,25 @@ def recovery_task(state):
                 state.pop(f"retry_count_{task_name}", None)
                 state.pop(disabled_at_key, None)
 
+def goal_timeout_task(state):
+    now = datetime.now()
+    goals = state.get("goals", [])
+
+    for goal in goals:
+        if goal["status"] == "active":
+            activated_at = goal.get("activated_at")
+            timeout_seconds = goal.get("timeout_seconds")
+
+            if not activated_at or not timeout_seconds:
+                continue
+
+            activated_time = datetime.fromisoformat(activated_at)
+
+            if (now - activated_time).total_seconds() > timeout_seconds:
+                goal["status"] = "failed"
+                goal["updated_at"] = now.isoformat()
+                log(f"[GOAL TIMEOUT] {goal['description']} exceeded time limit.")
+
 
 # ======================================================
 # INTENT → ACTION EXECUTION
@@ -252,9 +277,7 @@ def intent_executor_task(state):
     action_fn = ACTION_REGISTRY.get(action_name)
 
     if not action_fn:
-        log(f"[ACTION ERROR] No executor registered for action '{action_name}'")
-        state["intent_queue"] = intents
-        return
+     raise RuntimeError(f"No executor registered for action '{action_name}'")
 
     try:
         action_fn(payload, state)
@@ -307,6 +330,28 @@ def health_report_task(state):
         for key, value in state.items()
         if key.startswith("disabled_") and value
     ]
+def weekly_review_task(state):
+    now = datetime.now()
+    last_review = state.get("last_weekly_review")
+
+    if last_review:
+        last_review_time = datetime.fromisoformat(last_review)
+        if (now - last_review_time).days < 7:
+            return
+
+    goals = state.get("goals", [])
+
+    completed = len([g for g in goals if g["status"] == "completed"])
+    failed = len([g for g in goals if g["status"] == "failed"])
+    active = len([g for g in goals if g["status"] == "active"])
+
+    log("==== WEEKLY REVIEW ====")
+    log(f"Completed goals: {completed}")
+    log(f"Failed goals: {failed}")
+    log(f"Active goals: {active}")
+    log("=======================")
+
+    state["last_weekly_review"] = now.isoformat()
 
     failure_counts = {
         key.replace("retry_count_", ""): value
@@ -314,10 +359,6 @@ def health_report_task(state):
         if key.startswith("retry_count_") and value > 0
     }
 
-    log("---- SYSTEM HEALTH REPORT ----")
-    log(f"Disabled tasks: {disabled_tasks or 'None'}")
-    log(f"Tasks with failures: {failure_counts or 'None'}")
-    log("--------------------------------")
 
 
 # ======================================================
@@ -330,6 +371,13 @@ TASK_REGISTRY = [
     {"name": "event_handler", "priority": 3, "cooldown_seconds": 1, "max_retries": 0, "task": event_handler_task},
     {"name": "intent_executor", "priority": 4, "cooldown_seconds": 1, "max_retries": 1, "task": intent_executor_task},
     {
+    "name": "goal_timeout",
+    "priority": 4,
+    "cooldown_seconds": 60,
+    "max_retries": 0,
+    "task": goal_timeout_task
+},
+    {
     "name": "plan_executor",
     "priority": 5,
     "cooldown_seconds": 1,
@@ -341,6 +389,13 @@ TASK_REGISTRY = [
     
     {"name": "recovery", "priority": 90, "cooldown_seconds": 30, "max_retries": 0, "task": recovery_task},
     {"name": "health_report", "priority": 100, "cooldown_seconds": 30, "max_retries": 0, "task": health_report_task},
+    {
+    "name": "weekly_review",
+    "priority": 95,
+    "cooldown_seconds": 60,
+    "max_retries": 0,
+    "task": weekly_review_task
+}
 ]
 
 
