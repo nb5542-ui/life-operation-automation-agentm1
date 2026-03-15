@@ -242,6 +242,40 @@ def goal_timeout_task(state):
                 log(f"[GOAL TIMEOUT] {goal['description']} exceeded time limit.")
 
 
+def calculate_goal_score(goal):
+    status = goal.get("status")
+
+    if status == "completed":
+        return 100
+
+    if status == "active":
+        return 70
+
+    if status == "pending":
+        return 50
+
+    if status == "failed":
+        return 20
+
+    return 0
+GOAL_TYPE_PRIORITY = {
+    "career": 1.5,
+    "skill": 1.3,
+    "fitness": 1.1,
+    "misc": 1.0
+}
+GOAL_TYPE_MAP = {
+    "analyze_file": "skill",
+    "analyze_change": "skill",
+    "study": "skill",
+    "project": "career",
+    "placement": "career",
+    "job": "career",
+    "gym": "fitness",
+    "workout": "fitness",
+}
+
+
 # ======================================================
 # INTENT → ACTION EXECUTION
 # ======================================================
@@ -344,11 +378,15 @@ def weekly_review_task(state):
     completed = len([g for g in goals if g["status"] == "completed"])
     failed = len([g for g in goals if g["status"] == "failed"])
     active = len([g for g in goals if g["status"] == "active"])
+    scores = [g.get("score", 0) for g in goals]
+
+    avg_score = sum(scores) / len(scores) if scores else 0
 
     log("==== WEEKLY REVIEW ====")
     log(f"Completed goals: {completed}")
     log(f"Failed goals: {failed}")
     log(f"Active goals: {active}")
+    log(f"Average goal score: {avg_score:.1f}")
     log("=======================")
 
     state["last_weekly_review"] = now.isoformat()
@@ -358,6 +396,31 @@ def weekly_review_task(state):
         for key, value in state.items()
         if key.startswith("retry_count_") and value > 0
     }
+def goal_scoring_task(state):
+    goals = state.get("goals", [])
+
+    for goal in goals:
+        base_score = calculate_goal_score(goal)
+
+        raw_type = goal.get("type", "misc")
+        normalized_type = GOAL_TYPE_MAP.get(raw_type, raw_type)
+
+        weight = GOAL_TYPE_PRIORITY.get(normalized_type, 1.0)
+
+        final_score = int(base_score * weight)
+
+        goal["score"] = final_score
+        goal["priority_weight"] = weight
+        goal["normalized_type"] = normalized_type
+
+    log("[GOAL SCORING] Scores updated")
+
+def get_goal_priority_weight(goal):
+    raw_type = goal.get("type", "misc")
+
+    normalized_type = GOAL_TYPE_MAP.get(raw_type, raw_type)
+
+    return GOAL_TYPE_PRIORITY.get(normalized_type, 1.0)
 
 
 
@@ -386,6 +449,13 @@ TASK_REGISTRY = [
 },
 
     {"name": "status", "priority": 5, "cooldown_seconds": 15, "max_retries": 1, "task": status_task},
+    {
+    "name": "goal_scoring",
+    "priority": 6,
+    "cooldown_seconds": 5,
+    "max_retries": 0,
+    "task": goal_scoring_task
+},
     
     {"name": "recovery", "priority": 90, "cooldown_seconds": 30, "max_retries": 0, "task": recovery_task},
     {"name": "health_report", "priority": 100, "cooldown_seconds": 30, "max_retries": 0, "task": health_report_task},
