@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 import traceback
 
 import goal
 from logger import log
+import goal_selector
 from config import AGENT_NAME
 from memory import load_state, save_state
 from events import detect_file_event
@@ -60,7 +62,16 @@ def execute_plan_step(state, agent):
     goals = state.get("goals", [])
 
     # Find active plan
-    active_plan = next((p for p in plans if p["status"] == "active"), None)
+    active_goal_id = state.get("active_goal_id")
+
+    active_plan = next(
+    (
+        p for p in plans
+        if p["status"] == "active"
+        and p.get("goal_id") == active_goal_id
+    ),
+    None
+)
     if not active_plan:
         return
 
@@ -364,6 +375,9 @@ def health_report_task(state):
         for key, value in state.items()
         if key.startswith("disabled_") and value
     ]
+
+    if disabled_tasks:
+        log(f"[HEALTH] Disabled tasks: {disabled_tasks}")
 def weekly_review_task(state):
     now = datetime.now()
     last_review = state.get("last_weekly_review")
@@ -400,9 +414,10 @@ def goal_scoring_task(state):
     goals = state.get("goals", [])
 
     for goal in goals:
-        base_score = calculate_goal_score(goal)
+        base_score = calculate_goal_score(goal or {})
 
-        raw_type = goal.get("type", "misc")
+        raw_type = goal.get("type") or "misc"
+
         normalized_type = GOAL_TYPE_MAP.get(raw_type, raw_type)
 
         weight = GOAL_TYPE_PRIORITY.get(normalized_type, 1.0)
@@ -414,6 +429,10 @@ def goal_scoring_task(state):
         goal["normalized_type"] = normalized_type
 
     log("[GOAL SCORING] Scores updated")
+
+def goal_select_task(state):
+
+    goal_selector.select_active_goal(state)
 
 def get_goal_priority_weight(goal):
     raw_type = goal.get("type", "misc")
@@ -455,6 +474,13 @@ TASK_REGISTRY = [
     "cooldown_seconds": 5,
     "max_retries": 0,
     "task": goal_scoring_task
+},
+    {
+    "name": "goal_select",
+    "priority": 7,
+    "cooldown_seconds": 5,
+    "max_retries": 0,
+    "task": goal_select_task
 },
     
     {"name": "recovery", "priority": 90, "cooldown_seconds": 30, "max_retries": 0, "task": recovery_task},
