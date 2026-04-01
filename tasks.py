@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from datetime import datetime, timedelta
 import traceback
+from insight_logger import log_goal_table, log_active_goal, log_plan_status
 
 import goal
 from logger import log
@@ -22,6 +23,11 @@ def is_globally_paused(state):
 
 def is_task_paused(state, task_name):
     return state.get(f"paused_{task_name}", False)
+def insight_task(state):
+
+    log_goal_table(state)
+    log_active_goal(state)
+    log_plan_status(state)
 
 
 # ======================================================
@@ -481,6 +487,13 @@ TASK_REGISTRY = [
     "cooldown_seconds": 5,
     "max_retries": 0,
     "task": goal_select_task
+},
+{
+    "name": "insight",
+    "priority": 50,
+    "cooldown_seconds": 10,
+    "max_retries": 0,
+    "task": insight_task
 },
     
     {"name": "recovery", "priority": 90, "cooldown_seconds": 30, "max_retries": 0, "task": recovery_task},
