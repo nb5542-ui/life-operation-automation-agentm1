@@ -1,22 +1,22 @@
 {
-    "heartbeat_count": 89,
+    "heartbeat_count": 97,
     "retry_count_heartbeat": 0,
-    "last_run_heartbeat": "2026-04-02T03:19:42.017153",
-    "watch_file_mtime": 1775080161.6371367,
+    "last_run_heartbeat": "2026-04-04T22:32:49.438817",
+    "watch_file_mtime": 1775322158.0936673,
     "retry_count_event_listener": 0,
-    "last_run_event_listener": "2026-04-02T03:19:42.017153",
+    "last_run_event_listener": "2026-04-04T22:32:49.438817",
     "retry_count_event_handler": 0,
-    "last_run_event_handler": "2026-04-02T03:19:42.017153",
+    "last_run_event_handler": "2026-04-04T22:32:49.438817",
     "retry_count_intent_executor": 0,
-    "last_run_intent_executor": "2026-04-02T03:19:42.017153",
+    "last_run_intent_executor": "2026-04-04T22:32:49.438817",
     "retry_count_plan_executor": 0,
-    "last_run_plan_executor": "2026-04-02T03:19:42.017153",
+    "last_run_plan_executor": "2026-04-04T22:32:49.438817",
     "retry_count_status": 0,
-    "last_run_status": "2026-04-02T03:19:31.980800",
+    "last_run_status": "2026-04-04T22:32:44.409024",
     "retry_count_recovery": 0,
-    "last_run_recovery": "2026-04-02T03:19:16.911129",
+    "last_run_recovery": "2026-04-04T22:32:44.409024",
     "retry_count_health_report": 0,
-    "last_run_health_report": "2026-04-02T03:19:16.911129",
+    "last_run_health_report": "2026-04-04T22:32:44.409024",
     "event_queue": [],
     "intent_queue": [],
     "goals": [
@@ -101,6 +101,25 @@
             "normalized_type": "skill",
             "activated_at": "2026-04-02T03:18:51.815551",
             "timeout_seconds": 604800
+        },
+        {
+            "goal_id": "goal_event_trigger.txt_1775322159",
+            "type": "analyze_file",
+            "description": "Analyze changes in event_trigger.txt",
+            "status": "pending",
+            "created_at": "2026-04-04T22:32:39.386117",
+            "owner_agent_id": "system",
+            "related_intent": {
+                "action": "analyze_file",
+                "payload": {
+                    "file": "event_trigger.txt"
+                }
+            },
+            "updated_at": null,
+            "mission_id": "mission_codebase_health",
+            "score": 65,
+            "priority_weight": 1.3,
+            "normalized_type": "skill"
         }
     ],
     "missions": {
@@ -108,7 +127,8 @@
             "goal_event_trigger.txt_1771665952",
             "goal_event_trigger.txt_1773379440",
             "goal_event_trigger.txt_1773578635",
-            "goal_event_trigger.txt_1773582331"
+            "goal_event_trigger.txt_1773582331",
+            "goal_event_trigger.txt_1775322159"
         ]
     },
     "plans": [
@@ -227,16 +247,16 @@
     ],
     "retry_count_goal_timeout": 0,
     "disabled_weekly_review": false,
-    "last_run_goal_timeout": "2026-04-02T03:18:46.802094",
+    "last_run_goal_timeout": "2026-04-04T22:32:14.227923",
     "last_weekly_review": "2026-04-02T03:18:46.802094",
-    "last_run_weekly_review": "2026-04-02T03:18:46.802094",
+    "last_run_weekly_review": "2026-04-04T22:32:14.227923",
     "retry_count_weekly_review": 0,
     "retry_count_goal_scoring": 0,
-    "last_run_goal_scoring": "2026-04-02T03:19:42.017153",
-    "last_run_goal_select": "2026-04-02T03:19:42.017153",
+    "last_run_goal_scoring": "2026-04-04T22:32:49.438817",
+    "last_run_goal_select": "2026-04-04T22:32:49.438817",
     "disabled_goal_select": false,
     "active_goal_id": "goal_event_trigger.txt_1773582331",
     "retry_count_goal_select": 0,
     "retry_count_insight": 0,
-    "last_run_insight": "2026-04-02T03:19:36.998190"
+    "last_run_insight": "2026-04-04T22:32:44.409024"
 }

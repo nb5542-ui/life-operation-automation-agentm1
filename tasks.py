@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from datetime import datetime, timedelta
 import traceback
 from insight_logger import log_goal_table, log_active_goal, log_plan_status
+from explanation_engine import explain_goal_selection
 
 import goal
 from logger import log
@@ -439,6 +440,8 @@ def goal_scoring_task(state):
 def goal_select_task(state):
 
     goal_selector.select_active_goal(state)
+
+    explain_goal_selection(state)
 
 def get_goal_priority_weight(goal):
     raw_type = goal.get("type", "misc")
