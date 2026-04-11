@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import traceback
 from insight_logger import log_goal_table, log_active_goal, log_plan_status
 from explanation_engine import explain_goal_selection
+from energy_engine import apply_energy_weight
 
 import goal
 from logger import log
@@ -203,11 +204,37 @@ def event_handler_task(state, agent):
 
     for goal in goals:
         goal_dict = goal.__dict__
-        goal_store.append(goal_dict)
 
-        mission_id = goal_dict.get("mission_id")
-        if mission_id:
-            missions.setdefault(mission_id, []).append(goal_dict["goal_id"])
+        # 🔒 STRONG DEDUP (ignore status)
+        existing_goal = next(
+            (
+                g for g in goal_store
+                if g.get("description") == goal_dict.get("description")
+            ),
+            None
+        )
+
+        if existing_goal:
+
+            # ✅ If already active/pending → skip
+            if existing_goal.get("status") in ["pending", "active"]:
+                log(f"[GOAL SKIPPED] Duplicate active goal")
+                continue
+
+        # ✅ If completed recently → skip (avoid spam)
+        if existing_goal.get("status") == "completed":
+            log(f"[GOAL IGNORED] Recently completed goal")
+            continue
+
+        # ✅ If failed → allow retry
+        if existing_goal.get("status") == "failed":
+            log(f"[GOAL RETRY] Recreating failed goal")
+
+    goal_store.append(goal_dict)
+
+    mission_id = goal_dict.get("mission_id")
+    if mission_id:
+        missions.setdefault(mission_id, []).append(goal_dict["goal_id"])
 
     state["goals"] = goal_store
     state["missions"] = missions
@@ -429,7 +456,12 @@ def goal_scoring_task(state):
 
         weight = GOAL_TYPE_PRIORITY.get(normalized_type, 1.0)
 
-        final_score = int(base_score * weight)
+        energy_weight, bucket = apply_energy_weight(goal)
+
+        final_score = int(base_score * weight * energy_weight)
+
+        goal["energy_weight"] = energy_weight
+        goal["time_bucket"] = bucket
 
         goal["score"] = final_score
         goal["priority_weight"] = weight
