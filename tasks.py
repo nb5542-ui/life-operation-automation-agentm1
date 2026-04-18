@@ -4,6 +4,7 @@ import traceback
 from insight_logger import log_goal_table, log_active_goal, log_plan_status
 from explanation_engine import explain_goal_selection
 from energy_engine import apply_energy_weight
+from habit_engine import update_habit_stats, get_habit_weight
 
 import goal
 from logger import log
@@ -31,6 +32,8 @@ def insight_task(state):
     log_active_goal(state)
     log_plan_status(state)
 
+def habit_update_task(state):
+    update_habit_stats(state)
 
 # ======================================================
 # PLANNING (DAY 5)
@@ -458,7 +461,11 @@ def goal_scoring_task(state):
 
         energy_weight, bucket = apply_energy_weight(goal)
 
-        final_score = int(base_score * weight * energy_weight)
+        habit_weight = get_habit_weight(goal, state)
+
+        final_score = int(base_score * weight * energy_weight * habit_weight)
+
+        goal["habit_weight"] = habit_weight
 
         goal["energy_weight"] = energy_weight
         goal["time_bucket"] = bucket
@@ -522,6 +529,13 @@ TASK_REGISTRY = [
     "cooldown_seconds": 5,
     "max_retries": 0,
     "task": goal_select_task
+},
+{
+    "name": "habit_update",
+    "priority": 8,
+    "cooldown_seconds": 30,
+    "max_retries": 0,
+    "task": habit_update_task
 },
 {
     "name": "insight",

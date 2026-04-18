@@ -43,3 +43,4 @@ def explain_goal_selection(state):
     log("")
     log(f"Time Context: {active_goal.get('time_bucket')}")
     log(f"Energy Weight: {active_goal.get('energy_weight')}")
+    log(f"Habit Weight: {active_goal.get('habit_weight', 1.0)}")
